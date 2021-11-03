@@ -1,2 +1,5 @@
 # minimizer-jaccard-estimator
-Support for minimizer Jaccard estimator
+
+This software evaluates bias in the minimizer Jaccard estimator.
+
+
