@@ -54,7 +54,7 @@ Compute the Jaccard correction for pairs of sequences, relating to winnowed
 minimizers.
 
 If fasta_file_2 is provided, the first sequence in fasta_file_1 is compared to
-the first from fasta_file_2, the second is compare to the second, and so on.
+the first from fasta_file_2, the second is compared to the second, and so on.
 
 If fasta_file_2 is not provided, the first sequence in fasta_file_1 is compared
 to the second sequence, the third is compared to the fourth, and so on.
