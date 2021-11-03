@@ -14,7 +14,7 @@ from time                import strftime
 from hash_functions      import set_up_hash_function, \
                                 minimap2_hash_names, \
                                 murmurhash3_names, \
-                                broccohash_names
+                                splitmix64_hash_names
 from winnowed_minimizers import winnowed_minimizers_linear
 
 programName    = "jaccard_correction_test"
@@ -39,7 +39,7 @@ usage: cat <fasta_file_1> | %s [<fasta_file_2>] [options]
                           (default is 1 replicate)
   --hash=[<type>.]<seed>  type and seed for hash function; seed is an integer,
                           and "0x" prefix can be used to indicate hexadecimal;
-                          type is either minimap2, murmurhash3, or broccohash
+                          type is either minimap2, murmurhash3, or splitmix64
                           (default is minimap2.0)
   --prng=<string>         set seed for PRNG; NOT to be confused with the hash
                           seed
@@ -121,8 +121,8 @@ def main():
 			elif (argVal in murmurhash3_names):
 				hashType = "murmurhash3"
 				hashSeed = 0
-			elif (argVal in broccohash_names):
-				hashType = "broccohash"
+			elif (argVal in splitmix64_hash_names):
+				hashType = "splitmix64"
 				hashSeed = 0
 			else:
 				if ("." in argVal):

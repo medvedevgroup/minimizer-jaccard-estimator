@@ -1,23 +1,23 @@
 #!/usr/bin/env python3
 """
-Wrapper for the broccohash hash function.
+Wrapper for the splitmix64 hash function.
 
-This is an uncompiled version to use if broccohash.pyx is unavailable or can't
-be compiled.
+This is an uncompiled version to use if splitmix64_hash.pyx is unavailable or
+can't be compiled.
 
-This hash function, broccohash(), is derived from a blog post by David Stafford
-[1]. The function described there (which is NOT broccohash) has been used, in
-augmented form, in SplitMix64 [2,3]. It is modified here by the incorporation
-of a seed. If the seed is zero, the hash is identical to Stafford's function.
-However, in that case it hashes zero to zero, which for many uses is not ideal.
-A non-zero seed is recommended, and thus the first step of broccohash() xors
-the caller's seed with a nothing-up-my-sleeve value, making a non-zero seed
-more or less 'automatic'.
+This hash function, splitmix64_hash(), is derived from a blog post by David
+Stafford [1]. The function described there (which is NOT splitmix64_hash) has
+been used, in augmented form, in SplitMix64 [2,3]. It is modified here by the
+incorporation of a seed. If the seed is zero, the hash is identical to
+Stafford's function. However, in that case it hashes zero to zero, which for
+many uses is not ideal. A non-zero seed is recommended, and thus the first step
+of splitmix64_hash() xors the caller's seed with a nothing-up-my-sleeve value,
+making a non-zero seed more or less 'automatic'.
 
 Note that Stafford's function (which is called Mix13 in [1]) is similar to the
 avalanche step of murmurhash3 [4,5], but allegedly has better mixing properties.
 
-For a given seed, broccohash(seed,*) is invertible over 2**64.
+For a given seed, splitmix64_hash(seed,*) is invertible over 2**64.
 
 References:
   [1] Stafford, David, "Better Bit Mixing - Improving on MurmurHash3's
@@ -32,11 +32,11 @@ References:
   [5] https://github.com/aappleby/smhasher/wiki/MurmurHash3
 """
 
-# broccohash--
+# splitmix64_hash--
 #	seed: a 64-bit seed for the hash function
 #	v:    the 64-bit value to hash
 
-def broccohash(seed,v):  # (both arguments are 64-bit values)
+def splitmix64_hash(seed,v):  # (both arguments are 64-bit values)
 	seed ^= 0x3243F6A8885A308D     # (pi in base 16)
 	u = v + seed
 	u ^= u >> 30

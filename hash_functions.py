@@ -6,16 +6,16 @@ from sys import stderr
 # set_up_hash_function--
 #	Import the appropriate hash function module and create the hasher
 
-minimap2_hash = None
-murmurhash3   = None
-broccohash    = None
+minimap2_hash   = None
+murmurhash3     = None
+splitmix64_hash = None
 
-minimap2_hash_names = ["minimap2","minimap2hash","minimap2_hash"]
-murmurhash3_names   = ["murmurhash3"]
-broccohash_names    = ["brocco","broccohash","brocco_hash","Brocco","BroccoHash"]
+minimap2_hash_names   = ["minimap2","minimap2hash","minimap2_hash"]
+murmurhash3_names     = ["murmurhash3","MurmurHash3"]
+splitmix64_hash_names = ["splitmix64","splitmix64hash","splitmix64_hash","SplitMix64","SplitMix64Hash"]
 
 def set_up_hash_function(hashType,hashSeed,kmerSize):
-	global minimap2_hash,murmurhash3,broccohash
+	global minimap2_hash,murmurhash3,splitmix64_hash
 	if (hashType in minimap2_hash_names):
 		if (minimap2_hash == None):
 			try:
@@ -33,13 +33,13 @@ def set_up_hash_function(hashType,hashSeed,kmerSize):
 				print("WARNING: module murmurhash3 not found, using murmurhash3_uncompiled",file=stderr)
 				from murmurhash3_uncompiled import murmurhash3
 		return lambda kmerBits : murmurhash3(hashSeed,kmerBits)
-	elif (hashType in broccohash_names):
-		if (broccohash == None):
+	elif (hashType in splitmix64_hash_names):
+		if (splitmix64_hash == None):
 			try:
-				from broccohash import broccohash
+				from splitmix64_hash import splitmix64_hash
 			except ImportError:
-				print("WARNING: module broccohash not found, using broccohash_uncompiled",file=stderr)
-				from broccohash_uncompiled import broccohash
-		return lambda kmerBits : broccohash(hashSeed,kmerBits)
+				print("WARNING: module splitmix64_hash not found, using splitmix64_hash_uncompiled",file=stderr)
+				from splitmix64_hash_uncompiled import splitmix64_hash
+		return lambda kmerBits : splitmix64_hash(hashSeed,kmerBits)
 	else:
-		assert (False), "only minimap2 hash, murmurhash3, and broccohash are currently supported, not \"%s\"" % hashType
+		assert (False), "only minimap2 hash, murmurhash3, and splitmix64_hash are currently supported, not \"%s\"" % hashType
