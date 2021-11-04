@@ -18,7 +18,7 @@ from hash_functions      import set_up_hash_function, \
 from winnowed_minimizers import winnowed_minimizers_linear
 
 programName    = "jaccard_correction_test"
-programVersion = "0.2.3"
+programVersion = "0.3.0"
 
 
 def usage(s=None):
@@ -42,7 +42,8 @@ usage: cat <fasta_file_1> | %s [<fasta_file_2>] [options]
                           type is either minimap2, murmurhash3, or splitmix64
                           (default is minimap2.0)
   --prng=<string>         set seed for PRNG; NOT to be confused with the hash
-                          seed
+                          seed; this may include substrings "{date}" and
+                          "{time}"
   --inhibit:correction    don't compute any of the statistics related to the
                           jaccard correction
   --head=<number>         limit the number of input sequence pairs
@@ -193,23 +194,41 @@ def main():
 			fasta2F = open(fasta2Name,"rt")
 
 	# process the fasta sequence pairs
-	# $$$ "tau" was used in early versions of the manuscript, but it has been
-	#     since changed to D
-	# $$$ "alpha" as used in early versions of the manuscript, but it has been
-	#     since changed to g
+	#
+	# variable                              name in header      name in manuscript
+	# --------                              --------------      ------------------
+	# nameA                                 nameA            
+	# nameB                                 nameB            
+	# replicateNum                          rep
+	# hashSeed                              hash.seed
+	# numReplicates                         replicates
+	# windowSize                            w                   w
+	# kmerSize                              k                   k
+	# len(seqA)                             length.nt           (L+k-1)
+	# len(hashA)                            |a|                 L
+	# kd.nIntersection                      I(A,B)              I(A,B)
+	# kd.nUnion                             U(A,B)              U(A,B) 
+	# kd.jaccard                            J(A,B)              J(A,B)
+	# md.nIntersection or nIntersectionAvg  I(A,B;w)            Ihat(A,B;w) or average(Ihat(A,B;w))
+	# md.nUnion or nUnionAvg                U(A,B;w)            Uhat(A,B;w) or average(Uhat(A,B;w))
+	# md.jaccard or jaccardAvg              J(A,B;w)            Jhat(A,B;w) or Jbar(A,B;w)
+	# cd.scriptD                            D(A,B;w)            script D(A,B;w)
+	# cd.jaccardFromD                       Jd(A,B;w)
+	# cd.scriptC                            C(A,B;w)            script C(A,B;w)
+	# cd.bias                               Bias(A,B;w)         script B(A,B;w)
 
 	showAllReplicates = ("replicates" in debug)
 
-	header =  ["name1","name2"]
+	header =  ["nameA","nameA"]
 	if (numReplicates > 1):
 		if (showAllReplicates): header += ["rep","hash.seed"]
 		else:                   header += ["replicates"]
-	header += ["W","K","length.nt","|a|"]
+	header += ["w","k","length.nt","|a|"]
 	header += ["I(A,B)","U(A,B)","J(A,B)"]
 	if ("density" in debug): header += ["2L/(w+1)","|A.min(w)|","|B.min(w)|"]
 	header += ["I(A,B;w)","U(A,B;w)","J(A,B;w)"]
-	header += ["tau(A,B;w)","J(A,B)-eps","CI(A,B;w)","Bias(A,B;w)"]
-	header += ["J(A,B;w)-J(A,B)","I(A,B;w)-CI(A,B;w)"]
+	header += ["D(A,B;w)","Jd(A,B;w)","C(A,B;w)","Bias(A,B;w)"]
+	header += ["J(A,B;w)-J(A,B)","I(A,B;w)-C(A,B;w)"]
 
 	if ("checkduplicates" not in debug):
 		print("#%s" % "\t".join(header))
@@ -232,9 +251,9 @@ def main():
 		     % (nameA,nameB,len(seqA),len(seqB))
 
 		kd = jaccard_by_kmers(seqA,seqB,kmerSize,canonical=canonical)
-		# Sp^k(A) intersect Sp^k(B) is kd.nIntersection
-		# Sp^k(A) union Sp^k(B) is kd.nUnion
-		# J(A,B) is kd.jaccard
+		# kd.nIntersection is manuscript's Sp^k(A) intersect Sp^k(B)
+		# kd.nUnion        is manuscript's Sp^k(A) union Sp^k(B)
+		# kd.jaccard       is manuscript's J(A,B)
 
 		nIntersectionSum = nUnionSum = 0
 		jaccardSum = 0.0
@@ -250,9 +269,9 @@ def main():
 			hashA = hash_sequence(seqA,kmerSize,hashFunc,canonical=canonical)
 			hashB = hash_sequence(seqB,kmerSize,hashFunc,canonical=canonical)
 			md = jaccard_by_minimizers(hashA,hashB,windowSize,winnower)
-			# I(A,B;w) is md.nIntersection
-			# U(A,B;w) is md.nUnion
-			# J(A,B;w) is md.jaccard
+			# md.nIntersection is manuscript's I(A,B;w)
+			# md.nUnion        is manuscript's U(A,B;w)
+			# md.jaccard       is manuscript's J(A,B;w)
 
 			nIntersectionSum += md.nIntersection
 			nUnionSum        += md.nUnion
@@ -279,13 +298,12 @@ def main():
 				# needed for the first replicate (since it will be the same
 				# result for all replicates)
 				cd = jaccard_correction(nameA,hashA,nameB,hashB,windowSize)
-				# tau is cd.tau
-				# J(A,B)-epsilon is cd.jaccardByTau
-				# C_I(A,B;w) is cd.CI
-				# \mathcal B Bias(A,B;w) is cd.bias
+				# cd.scriptD is manuscript's script D(A,B;w)
+				# cd.scriptC is manuscript's script C(A,B;w)
+				# cd.bias    is manuscript's script B(A,B;w)
 
-				if ("CI" in debug):
-					dbg_report_CI(cd.dbgCI)
+				if ("C" in debug):
+					dbg_report_script_c(cd.dbgScriptC)
 
 			if (numReplicates > 1) and (not showAllReplicates):
 				if (replicateNum < numReplicates-1):
@@ -310,17 +328,17 @@ def main():
 			elif (replicateNum == numReplicates-1):
 				line += ["%.3f\t%.3f\t%.6f" % (nIntersectionAvg,nUnionAvg,jaccardAvg)]
 			if (computeCorrection):
-				line += ["%d\t%.6f\t%.6f\t%.6f" % (cd.tau,cd.jaccardByTau,cd.CI,cd.bias)]
+				line += ["%d\t%.6f\t%.6f\t%.6f" % (cd.scriptD,cd.jaccardFromD,cd.scriptC,cd.bias)]
 			else:
 				line += ["NA\tNA\tNA\tNA"]
 			if (numReplicates == 1) or (showAllReplicates):
 				if (computeCorrection):
-					line += ["%.6f\t%.6f"   % (md.jaccard-kd.jaccard,md.nIntersection-cd.CI)]
+					line += ["%.6f\t%.6f"   % (md.jaccard-kd.jaccard,md.nIntersection-cd.scriptC)]
 				else:
 					line += ["%.6f\tNA"     % (md.jaccard-kd.jaccard)]
 			elif (replicateNum == numReplicates-1):
 				if (computeCorrection):
-					line += ["%.6f\t%.6f"   % (jaccardAvg-kd.jaccard,nIntersectionAvg-cd.CI)]
+					line += ["%.6f\t%.6f"   % (jaccardAvg-kd.jaccard,nIntersectionAvg-cd.scriptC)]
 				else:
 					line += ["%.6f\tNA"     % (jaccardAvg-kd.jaccard)]
 			print("\t".join(line))
@@ -371,9 +389,10 @@ def jaccard_correction(nameA,hashA,nameB,hashB,windowSize):
 		raise
 
 	# compute configurations
+	# shared[(i,j)] is manuscript's S(i,j,w), but only when S(i,j,w)>0
+	# nConfigurations[s][(cal,car,cbl,cbr)] is manuscript's N[(cal,car;cbl,cbr;s)]
 
 	shared = window_shared_counts(hashA,hashB,windowSize,aPosToBPos)
-	# S(i,j,w) is shared[(i,j)], but only when S(i,j,w)>0
 
 	if ("shared" in debug):
 		dbg_report_shared(hashA,hashB,aPosToBPos,bPosToAPos,shared,windowSize)
@@ -383,65 +402,69 @@ def jaccard_correction(nameA,hashA,nameB,hashB,windowSize):
 	L = len(hashA)
 	w = windowSize
 
-	if ("CI" in debug):
-		dbgCI = []
+	if ("C" in debug):
+		dbgScriptC = []
 
-	tau = 0
+	scriptD = 0
 	for s in range(windowSize+1):
 		if (s not in nConfigurations): continue
 		for (cal,cbl) in cartesian_product([0,1,2],[0,1,2]):
-			tau += nConfigurations[s][(cal,0,cbl,0)]
-	jTau = float(tau) / (2*L - tau)                  # J(A,B)-epsilon is jTau
+			scriptD += nConfigurations[s][(cal,0,cbl,0)]
+	jaccardFromD = float(scriptD) / (2*L - scriptD)
 
-	CI = 0                                           # C_I(A,B;w) is CI
-	for s in range(windowSize+1):                    # (min is 0, max is w)
-		f0 = 1.0 / (2*w-s)                           # f_0(s) is f0
-		f1 = 1.0 / ((2*w-s)*(2*w-s+1))               # f_1(s) is f1
-		f2 = 2.0 / ((2*w-s)*(2*w-s+1)*(2*w-s+2))     # f_2(s) is f2
-		alpha = {}                                   # alpha_t(s) is alpha[t]
-		for t in [0,1,2]:                            # (note that alpha_1(s) is not needed)
-			alpha[t] = 0
-			for (car,cbr) in cartesian_product([0,1,2],[0,1,2]):
-				alpha[t] += (s-1)*nConfigurations[s][(t,car,t,cbr)]
-			alpha[t] -= nConfigurations[s][(t,1,t,1)]
-			alpha[t] += nConfigurations[s][(t,2,t,2)]
-		if ("alpha" in debug):
-			dbg_report_alpha(alpha,s)
+	scriptC = 0                                       # scriptC is manuscript's script C(A,B;w)
+	for s in range(windowSize+1):                     # (min is 0, max is w)
+		nOmega = {}                                   # nOmega[t] is manuscript's N(omega_{t,s})
+		for t in [0,2]:                               # (note that N(omega_{1,s}) is not needed)
+			nOmega[t] = 0
+			for (car,cbr) in [(1,2),(2,1),(0,0)]:
+				nOmega[t] += nConfigurations[s][(t,car,t,cbr)]
+		if ("omega" in debug):
+			dbg_report_n_omega(nOmega,s)
 
-		CI += f1*alpha[0] + f2*alpha[2]
+		g = g_func                                    # g_func(w,s,alpha,beta) is manuscript's g(s,alpha,beta)
+		scriptC +=     nConfigurations[s][(0,2,0,2)] * g(w,s,0,1)
+		scriptC += 2 * nConfigurations[s][(2,2,2,2)] * g(w,s,0,2)
+		scriptC += 2 * nConfigurations[s][(2,1,2,1)] * g(w,s,2,2)
 		for (cal,cbl) in cartesian_product([0,1,2],[0,1,2]):
-			CI += f0*nConfigurations[s][(cal,0,cbl,0)]
+			scriptC += nConfigurations[s][(cal,0,cbl,0)] * g(w,s,s-1,0)
 		for (cal,car,cbl) in cartesian_product([0,2],[0,1,2],[0,1,2]):
-			CI += f1*nConfigurations[s][(cal,car,cbl,1)]
+			scriptC += nConfigurations[s][(cal,car,cbl,1)] * g(w,s,s-1,1)
 		for (cal,cbl,cbr) in cartesian_product([0,1,2],[0,2],[0,1,2]):
-			CI += f1*nConfigurations[s][(cal,1,cbl,cbr)]
+			scriptC += nConfigurations[s][(cal,1,cbl,cbr)] * g(w,s,s-1,1)
+		scriptC +=     nOmega[0] * g(w,s,1,1)
+		scriptC += 2 * nOmega[2] * g(w,s,1,2)
 
-		if ("CI" in debug):
-			deltaCI = CI if (s==0) else (CI-prevCI)
-			prevCI = CI
+		if ("C" in debug):
+			deltaScriptC = scriptC if (s==0) else (scriptC-prevScriptC)
+			prevScriptC = scriptC
 			parts = []
-			parts += [(f1,alpha[0])]
-			parts += [(f2,alpha[2])]
-			parts += [(f0,sum([nConfigurations[s][(cal,0,cbl,0)] for (cal,cbl) in cartesian_product([0,1,2],[0,1,2])]))]
-			parts += [(f1,sum([nConfigurations[s][(cal,car,cbl,1)] for (cal,car,cbl) in cartesian_product([0,2],[0,1,2],[0,1,2])]))]
-			parts += [(f1,sum([nConfigurations[s][(cal,1,cbl,cbr)] for (cal,cbl,cbr) in cartesian_product([0,1,2],[0,2],[0,1,2])]))]
-			dbgCI += [(s,deltaCI,parts)]
+			parts += [(  nConfigurations[s][(0,2,0,2)],g(w,s,0,1))]
+			parts += [(2*nConfigurations[s][(2,2,2,2)],g(w,s,0,2))]
+			parts += [(2*nConfigurations[s][(2,1,2,1)],g(w,s,2,2))]
+			parts += [(sum([nConfigurations[s][(cal,0,cbl,0)] for (cal,cbl) in cartesian_product([0,1,2],[0,1,2])]),g(w,s,s-1,0))]
+			parts += [(sum([nConfigurations[s][(cal,car,cbl,1)] for (cal,car,cbl) in cartesian_product([0,2],[0,1,2],[0,1,2])]),g(w,s,s-1,1))]
+			parts += [(sum([nConfigurations[s][(cal,1,cbl,cbr)] for (cal,cbl,cbr) in cartesian_product([0,1,2],[0,2],[0,1,2])]),g(w,s,s-1,1))]
+			parts += [(  nOmega[0],g(w,s,1,1))]
+			parts += [(2*nOmega[2],g(w,s,1,2))]
+			dbgScriptC += [(s,deltaScriptC,parts)]
 
-	bias = (float((w+1)*CI)/(4*L-(w+1)*CI)) - (float(tau) / (2*L - tau))
-	# \mathcal B Bias(A,B;w) is bias
+	bias = (scriptC/((float(4*L)/(w+1))-scriptC)) - (float(scriptD)/(2*L-scriptD))
+	# bias is manuscript's script B Bias(A,B;w)
 
 	cd = CorrectionData()
-	cd.tau          = tau
-	cd.jaccardByTau = jTau
-	cd.CI           = CI
+	cd.scriptD      = scriptD
+	cd.jaccardFromD = jaccardFromD
+	cd.scriptC      = scriptC
 	cd.bias         = bias
-	if ("CI" in debug): cd.dbgCI = dbgCI
+	if ("C" in debug): cd.dbgScriptC = dbgScriptC
 	return cd
 
 
 # window_shared_counts
-#	return S s.t. S[(i,j)] is the count of shared hash values in A[i..i+w-1]
-#	and B[j..j+w-1]. S is only populated for (i,j) that lead to non-zero counts.
+#	return shared s.t. shared[(i,j)] is the count of shared hash values in
+#	A[i..i+w-1] and B[j..j+w-1]. shared is only populated for (i,j) that lead
+#	to non-zero counts.
 
 def window_shared_counts(hashA,hashB,windowSize,aPosToBPos):
 	w = windowSize
@@ -465,21 +488,21 @@ def window_shared_counts(hashA,hashB,windowSize,aPosToBPos):
 #	two implementations -- all_configurations() which is easy to prove correct,
 #	and configurations() which is much faster.
 #
-# The vast majority of configs are [2,2,2,2]0. configurations() avoids
+# The vast majority of configs are [2,2;2,2;0]. configurations() avoids
 # reporting most of those, but computes all the others. The count for the
-# unreported [2,2,2,2]0 is then deduced from the difference in the number of
+# unreported [2,2;2,2;0] is then deduced from the difference in the number of
 # configurations reported and the expected number, configurations_count().
-# Note that configurations() may report *some* [2,2,2,2]0.
+# Note that configurations() may report *some* [2,2;2,2;0].
 #
 # Hypothesis:
-#	All non-[2,2,2,2]0 configurations fall into this set:
+#	All non-[2,2;2,2;0] configurations fall into this set:
 #	union over i',j' s.t. a[i']=b[j'] of {i,j s.t. i<=i'-w<=i and j<=j'-w<=j}
 #
-# The config at (i,j) is *not* [2,2,2,2]0 if any of these are true
+# The config at (i,j) is *not* [2,2;2,2;0] if any of these are true
 #	s!=0     S(i+1,j+1,w) != 0           (i+1,j+1) in shared
-#	cal!=2   a[i] is in b[j..j+w]        j <= aPosToBPos[i] <= j+w
+#	cal!=2   a[i] is in b[j..j+w]        j   <= aPosToBPos[i]   <= j+w
 #	car!=2   a[i+w] is in b[j+1..j+w]    j+1 <= aPosToBPos[i+w] <= j+w
-#	cbl!=2   b[j] is in a[i..i+w]        i <= bPosToAPos[j] <= i+w
+#	cbl!=2   b[j] is in a[i..i+w]        i   <= bPosToAPos[j]   <= i+w
 #	cbr!=2   b[j+w] is in a[i+1..i+w]    i+1 <= bPosToAPos[j+w] <= i+w
 
 def configuration_counts(hashA,hashB,aPosToBPos,bPosToAPos,shared,windowSize):
@@ -488,6 +511,7 @@ def configuration_counts(hashA,hashB,aPosToBPos,bPosToAPos,shared,windowSize):
 
 	nExpectedConfigurations = configurations_count(hashA,hashB,windowSize)
 
+	# nConfigurations[s][(cal,car,cbl,cbr)] is manuscript's N[(cal,car;cbl,cbr;s)]
 	nConfigurations = {}
 	for s in range(windowSize+1):        # min is 0, max is w
 		nConfigurations[s] = defaultdict(int)
@@ -606,6 +630,26 @@ def configuration_matrix(hashA,hashB,aPosToBPos,bPosToAPos,windowSize,i,j):
 	return (cal,car,cbl,cbr)
 
 
+# g_func--
+#	This is g(s,alpha,beta) from the manuscript.
+#
+# nota bene: We back this function with a cache. This implementation would
+#            probably be cleaner if it used the python memoization paradigm.
+
+g_func_hash = {}
+def g_func(w,s,alpha,beta,blindToCache=False):
+	cacheKey = (w,s,alpha,beta)
+	if (not blindToCache) and (cacheKey in g_func_hash):
+		return g_func_hash[cacheKey]
+
+	g = s - alpha
+	for i in range(0,beta+1):    # min is 0, max is beta
+		g /= 2*w-s+i
+
+	g_func_hash[cacheKey] = g
+	return g
+
+
 # hash_sequence--
 #	Convert a sequence to hashed kmers
 
@@ -671,6 +715,8 @@ def shared_hash_positions(hashA,hashB,duplicates=None):
 class KmerData: pass
 
 def jaccard_by_kmers(seqA,seqB,kmerSize,canonical=False):
+	assert (len(seqA) > 0) or (len(seqB) > 0)
+
 	kmersA = distinct_kmers(seqA,kmerSize,canonical=canonical)
 	kmersB = distinct_kmers(seqB,kmerSize,canonical=canonical)
 
@@ -832,10 +878,10 @@ def dbg_report_shared(hashA,hashB,aPosToBPos,bPosToAPos,shared,windowSize):
 		for j in range(len(hashB)-(w-1)):
 			keysConsidered.add((i,j))
 			if ((i,j) not in shared): continue
-			print("S(%d,%d,10) = %d" % (i,j,shared[(i,j)]),file=stderr)
+			print("S(%d,%d,%d) = %d" % (i,j,windowSize,shared[(i,j)]),file=stderr)
 	for (i,j) in shared:
 		if ((i,j) not in keysConsidered):
-			print("S(%d,%d,10) = %d (problem?)" % (i,j,shared[(i,j)]),file=stderr)
+			print("S(%d,%d,%d) = %d (problem?)" % (i,j,windowSize,shared[(i,j)]),file=stderr)
 
 def dbg_report_configuration(i,j,s,cal,car,cbl,cbr):
 	print("config(%d,%d) = [%d,%d;%d,%d;%d]"
@@ -855,16 +901,16 @@ def dbg_report_configurations(nConfigurations):
 			       nConfigurations[s][(cal,car,cbl,cbr)]),
 			      file=stderr)
 
-def dbg_report_alpha(alpha,s):
-	for t in [0,1,2]:
-		print("alpha_%d(%d) = %d" % (t,s,alpha[t]),file=stderr)
+def dbg_report_n_omega(nOmega,s):
+	for t in [0,2]:
+		print("N(omega_{%d,%d} = %d" % (t,s,nOmega[t]),file=stderr)
 
-def dbg_report_CI(dbgCI):
-	for (s,deltaCI,parts) in dbgCI:
-		prefix = "CI =" if (s == 0) else "+"
+def dbg_report_script_c(dbgScriptC):
+	for (s,deltaScriptC,parts) in dbgScriptC:
+		prefix = "scriptC =" if (s == 0) else "+"
 		partsStr = "" if (len(parts) == 0) \
-		           else (", %s" % ("+".join(["%0.6f*%s"%(part[0],part[1]) for part in parts])))
-		print("%s %0.6f (for s=%d%s)" % (prefix,deltaCI,s,partsStr),file=stderr)
+		           else (", %s" % ("+".join(["%s*%0.6f"%(part[0],part[1]) for part in parts])))
+		print("%s %0.6f (for s=%d%s)" % (prefix,deltaScriptC,s,partsStr),file=stderr)
 
 
 # reverse_complement--
