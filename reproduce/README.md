@@ -31,4 +31,10 @@ plantain.K=7.first_pair.fa.gz
 plantain.K=8.first_pair.fa.gz
 ```
 
+A randomly chosen 1Kbp segment from human (hg38) chromosome 20.
+
+```bash 
+hg38.chr20.L=1K.fa.gz
+```
+
 (more to come)
