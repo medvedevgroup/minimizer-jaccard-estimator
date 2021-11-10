@@ -3,15 +3,16 @@
 ### Prerequisites
 
 * python3
+* gzip
 
 ### Experiments
 
 Most of the experiments involved running jaccard_correction_test.py on a
-collection of sequence pairs. The sequence files are described later in this
-document. The output of jaccard_correction_test is a tab-delimited table with
-a row for each pair or each group of pairs, as shown below. Labeled columns
-provide details and results beyond what is reflected in the manuscript's
-figures and tables.
+collection of sequence pairs. The output of jaccard_correction_test is a
+tab-delimited table with a row for each pair or each group of pairs, as shown
+below. Labeled columns provide details and results beyond what is reflected in
+the manuscript's figures and tables. The sequence files are described later in
+this document. 
 
 ```bash 
 #nameA                     nameA                      replicates w   k  length.nt |a|   I(A,B) U(A,B) J(A,B)   I(A,B;w) U(A,B;w) J(A,B;w) D(A,B;w) Jd(A,B;w) C(A,B;w)  Bias(A,B;w) J(A,B;w)-J(A,B) I(A,B;w)-C(A,B;w)
@@ -24,7 +25,29 @@ LEMON_L10015_K16_R10%_5_0  LEMON_L10015_K16_R10%_5_1  50         100 16 10015   
 
 #### Figure 3
 
-(more to come)
+For the unrelated pairs:
+
+```bash 
+gzip -dc plantain.K=7.first_pair.fa.gz \
+  | jaccard_correction_test.py K=7 W=20 --replicates=50 --prng=20210908A \
+  > plantain.K=7.W=20.first_pair.dat
+
+gzip -dc plantain.K=8.first_pair.fa.gz \
+  | jaccard_correction_test.py K=8 W=20 --replicates=50 --prng=20210908A \
+  > plantain.K=8.W=20.first_pair.dat
+```
+
+For the related pairs:
+
+```bash 
+gzip -dc ecoli.K12.dupfree.K=16.L=10K.K=16.mutation_model.first_pair.fa.gz \
+  | jaccard_correction_test.py K=16 W=20 --replicates=50 --prng=20210908A \
+  > results/ecoli.K12.dupfree.K=16.L=10K.K=16.mutation_model.first_pair.W=20.dat
+
+gzip -dc ecoli.K12.dupfree.K=16.L=10K.K=16.mutation_model.first_pair.fa.gz \
+  | jaccard_correction_test.py K=16 W=200 --replicates=50 --prng=20210908A \
+  > results/ecoli.K12.dupfree.K=16.L=10K.K=16.mutation_model.first_pair.W=200.dat
+```
 
 #### Figure 4
 
