@@ -34,7 +34,7 @@ Related sequence pairs generated from a mutation model applied to a random
 duplicate-free sequence. There are fifty pairs (each with no relation to the
 other pairs) for mutation rate 10%.
 
-#### plantain.K=7.first_pair.fa.gz
+#### plantain.K=7.first_pair.fa.gz and plantain.K=8.first_pair.fa.gz
 
 Unrelated sequence pairs generated as duplicate-free random walks. There is
 one pair for each target Jaccard (10%, 20%, ... , 90%).
