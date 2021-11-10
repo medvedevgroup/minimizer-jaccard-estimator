@@ -42,40 +42,126 @@ For the related pairs:
 ```bash 
 gzip -dc ecoli.K12.dupfree.K=16.L=10K.K=16.mutation_model.first_pair.fa.gz \
   | jaccard_correction_test.py K=16 W=20 --replicates=50 --prng=20210908A \
-  > results/ecoli.K12.dupfree.K=16.L=10K.K=16.mutation_model.first_pair.W=20.dat
+  > ecoli.K12.dupfree.K=16.L=10K.K=16.mutation_model.first_pair.W=20.dat
 
 gzip -dc ecoli.K12.dupfree.K=16.L=10K.K=16.mutation_model.first_pair.fa.gz \
   | jaccard_correction_test.py K=16 W=200 --replicates=50 --prng=20210908A \
-  > results/ecoli.K12.dupfree.K=16.L=10K.K=16.mutation_model.first_pair.W=200.dat
+  > ecoli.K12.dupfree.K=16.L=10K.K=16.mutation_model.first_pair.W=200.dat
 ```
 
 #### Figure 4
 
-(more to come)
+```bash 
+cat hg38.chr20.fa \
+  | sliding_jaccard.py --minimizers:local data/hg38.chr20.L=1K.fa.gz K=16 W=200 \
+  > hg38.chr20.L=1K.K=16.W=200.local.dat.gz
+```
 
-#### Figure 5
+#### Figure 5, Figure 6B
 
-(more to come)
+```bash 
+declare -a windowSizes=("20" "100" "200" "300" "400" "500" "600" "700" "800" "900" "1000")
+for W in "${windowSizes[@]}" ; do
+  gzip -dc lemonB.K=16.R=10%.fa.gz \
+    | jaccard_correction_test.py K=16 W=${W} \
+      --replicates=50 --prng=20210908A \
+    > lemonB.K=16.R=10%.W=${W}.dat
+  done
+```
 
 #### Figure 6A
 
-(more to come)
-
-#### Figure 6B
-
-(more to come)
+```bash 
+gzip -dc lemon.K=16.R=10%.fa.gz \
+  | jaccard_correction_test.py K=16 W=20 --replicates=50 --prng=20210908A \
+  > lemon.K=16.R=10%.W=20.dat
+```
 
 #### Table 1
 
-(more to come)
+(more to come) I need to make the W=1 mashmap available in a repo
+
+```bash 
+declare -a errorRates=("1" "5" "10")
+for R in "${errorRates[@]}" ; do
+  # modified mashmap, with W=1
+  mashmapW1 \
+    -r ${ecoliDir}/ecoli.K12.fa.gz \
+    -q tangerine.ecoli.K12.L=${L}.R=${R}%.mutation_model.fa.gz \
+    -o temp/tangerine.ecoli.K12.L=${L}.W=1.R=${R}%.mutation_model.mashmap \
+    2> tangerine.ecoli.K12.L=${L}.W=1.R=${R}%.mutation_model.mashmap.log \
+    > tangerine.ecoli.K12.L=${L}.W=1.R=${R}%.mutation_model.mashmap.out
+  #
+  cat temp/tangerine.ecoli.K12.L=${L}.W=1.R=${R}%.mutation_model.mashmap \
+    | awk 'BEGIN { print "#query q.len q.start q.end strand reference r.len r.start r.end identity.mash identity.truth" }
+                 { print $0,identity; }' identity=$((100-R)) \
+    > tangerine.ecoli.K12.L=${L}.W=1.R=${R}%.mutation_model.mashmap.dat
+  #
+  # regular mashmap, with default W=200
+  mashmap \
+    -r ${ecoliDir}/ecoli.K12.fa.gz \
+    -q tangerine.ecoli.K12.L=${L}.R=${R}%.mutation_model.fa.gz \
+    -o temp/tangerine.ecoli.K12.L=${L}.W=200.R=${R}%.mutation_model.mashmap \
+    2> tangerine.ecoli.K12.L=${L}.W=200.R=${R}%.mutation_model.mashmap.log \
+    > tangerine.ecoli.K12.L=${L}.W=200.R=${R}%.mutation_model.mashmap.out
+  #
+  cat temp/tangerine.ecoli.K12.L=${L}.W=200.R=${R}%.mutation_model.mashmap \
+    | awk 'BEGIN { print "#query q.len q.start q.end strand reference r.len r.start r.end identity.mash identity.truth" }
+                 { print $0,identity; }' identity=$((100-R)) \
+    > tangerine.ecoli.K12.L=${L}.W=200.R=${R}%.mutation_model.mashmap.dat
+  done
+```
 
 #### Table S2
 
-(more to come)
+```bash 
+:> hash_specs
+echo "minimap2_noncanon    minimap2    --noncanonical --noinhibit:correction" >> hash_specs
+echo "murmurhash3_noncanon murmurhash3 --noncanonical --inhibit:correction"   >> hash_specs
+echo "splitmix64_noncanon  splitmix64  --noncanonical --inhibit:correction"   >> hash_specs
+
+cat hash_specs \
+  | while read hashName hashFunc hashCanon inhibition ; do
+      gzip -dc data/plantain.K=7.first_pair.fa.gz \
+        | jaccard_correction_test.py K=7 W=20 \
+          --hash=${hashFunc}.0 ${hashCanon} --replicates=50 --prng=20210908A \
+          ${inhibition} \
+        | awk '/^#/ { $3="hash "$3; print $0; }
+              !/^#/ { $3=hashName" "$3; print $0; }' hashName=${hashName} \
+        > results/plantain.K=7.W=20.first_pair.hash=${hashName}.dat
+      #
+      gzip -dc data/plantain.K=8.first_pair.fa.gz \
+        | jaccard_correction_test.py K=8 W=20 \
+          --hash=${hashFunc}.0 ${hashCanon} --replicates=50 --prng=20210908A \
+          ${inhibition} \
+        | awk '/^#/ { $3="hash "$3; print $0; }
+              !/^#/ { $3=hashName" "$3; print $0; }' hashName=${hashName} \
+        > results/plantain.K=8.W=20.first_pair.hash=${hashName}.dat
+      done
+```
 
 #### Table S3
 
-(more to come)
+```bash 
+:> hash_specs
+echo "minimap2_noncanon    minimap2    --noncanonical --noinhibit:correction" >> hash_specs
+echo "murmurhash3_noncanon murmurhash3 --noncanonical --inhibit:correction"   >> hash_specs
+echo "splitmix64_noncanon  splitmix64  --noncanonical --inhibit:correction"   >> hash_specs
+
+cat hash_specs \
+  | while read hashName hashFunc hashCanon inhibition ; do
+      echo "=== ${hashName} ==="
+      gzip -dc data/ecoli.K12.dupfree.K=16.L=10K.K=16.mutation_model.first_pair.fa.gz \
+        | jaccard_correction_test.py K=16 W=20 \
+          --hash=${hashFunc}.0 ${hashCanon} --replicates=50 --prng=20210908A \
+          ${inhibition} \
+          --progress=1 \
+        | awk '/^#/ { $3="hash "$3; print $0; }
+              !/^#/ { $3=hashName" "$3; print $0; }' hashName=${hashName} \
+        | line_up_columns \
+        > results/ecoli.K12.dupfree.K=16.L=10K.K=16.mutation_model.first_pair.W=20.hash=${hashName}.dat
+      done
+```
 
 ### Sequences
 
@@ -86,6 +172,11 @@ fruit. They have no connection in reality to the given fruit (e.g. they are
 
 Where sequences were drawn from E.coli, these were taken from Escherichia coli
 strain K-12 substrain MG1655, https://www.ncbi.nlm.nih.gov/nuccore/U00096.
+
+The Genome Reference Consortium's Human Build 38, also known as GRCh38 or hg38,
+was also used. Specifically chromsome 20, which is available at
+https://www.ncbi.nlm.nih.gov/nuccore/CM000682.2. In the experiments above, the
+filename is hg38.chr20.fa.
 
 Sequence pairs are stored in tandem in the following files. That is, the first
 two sequences in the file are one pair, the next two sequences are the second
