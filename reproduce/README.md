@@ -21,12 +21,19 @@ Related sequence pairs generated from a randomly chosen segment of E.coli,
 under a mutation model. There is one pair for each mutation rate (.1%, .5%, 1%,
 5%, and 10%). The first sequence in each pair is the same.
 
+#### tangerine.ecoli.K12.L=10K.R=\*.mutation_model.fa.gz
+
+Sequences (*not* pairs) drawn from randomly chosen segments of E.coli and
+subjected to a Bernoulli mutation model. For each mutation rate (1% 5% 10%)
+there are one hundred sequences. The same one hundred E. coli segments were
+selected for each mutation rate.
+
 #### lemon.K=16.R=10%.fa.gz 
 
 Related sequence pairs generated from a mutation model applied to a random
-duplicate-free sequence. For each length (100, 1000, 2000, 3000, 4000, 5000,
-6000, 7000, 8000, 9000, 10000) there are fifty pairs (each with no relation to
-the other pairs) for mutation rate 10%.
+duplicate-free sequence. For each length (100, 1000, 2000, ... , 9000, 10000)
+there are fifty pairs (each with no relation to the other pairs) for mutation
+rate 10%.
 
 #### lemonB.K=16.R=10%.fa.gz 
 
