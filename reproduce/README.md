@@ -4,10 +4,13 @@
 
 * python3
 * gzip
+* mashmap (from https://github.com/marbl/MashMap)
+* modified mashmap (from https://github.com/medvedevgroup/MashMap), named as
+mashmapW1
 
 ### Experiments
 
-Most of the experiments involved running jaccard_correction_test.py on a
+Most of the experiment involve running jaccard_correction_test.py on a
 collection of sequence pairs. The output of jaccard_correction_test is a
 tab-delimited table with a row for each pair or each group of pairs, as shown
 below. Labeled columns provide details and results beyond what is reflected in
@@ -78,8 +81,6 @@ gzip -dc lemon.K=16.R=10%.fa.gz \
 ```
 
 #### Table 1
-
-(more to come) I need to make the W=1 mashmap available in a repo
 
 ```bash 
 declare -a errorRates=("1" "5" "10")
