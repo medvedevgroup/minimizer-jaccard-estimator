@@ -6,6 +6,52 @@
 
 ### Experiments
 
+Most of the experiments involved running jaccard_correction_test.py on a
+collection of sequence pairs. The sequence files are described later in this
+document. The output of jaccard_correction_test is a tab-delimited table with
+a row for each pair or each group of pairs, as shown below. Labeled columns
+provide details and results beyond what is reflected in the manuscript's
+figures and tables.
+
+```bash 
+#nameA                     nameA                      replicates w   k  length.nt |a|   I(A,B) U(A,B) J(A,B)   I(A,B;w) U(A,B;w) J(A,B;w) D(A,B;w) Jd(A,B;w) C(A,B;w)  Bias(A,B;w) J(A,B;w)-J(A,B) I(A,B;w)-C(A,B;w)
+LEMON_L10015_K16_R10%_1_0  LEMON_L10015_K16_R10%_1_1  50         100 16 10015     10000 1714   18286  0.093733 23.160   373.420  0.062117 1687     0.092120  22.612257 -0.031567   -0.031616       0.547743
+LEMON_L10015_K16_R10%_2_0  LEMON_L10015_K16_R10%_2_1  50         100 16 10015     10000 1805   18195  0.099203 23.160   371.780  0.062371 1802     0.099022  24.096816 -0.034236   -0.036832       -0.936816
+LEMON_L10015_K16_R10%_3_0  LEMON_L10015_K16_R10%_3_1  50         100 16 10015     10000 1945   18055  0.107726 25.620   368.860  0.069591 1919     0.106134  26.194298 -0.035308   -0.038135       -0.574298
+LEMON_L10015_K16_R10%_4_0  LEMON_L10015_K16_R10%_4_1  50         100 16 10015     10000 1921   18079  0.106256 23.960   369.240  0.065008 1901     0.105033  25.798101 -0.035354   -0.041248       -1.838101
+LEMON_L10015_K16_R10%_5_0  LEMON_L10015_K16_R10%_5_1  50         100 16 10015     10000 1936   18064  0.107174 26.780   370.340  0.072444 1903     0.105156  25.606760 -0.036029   -0.034731       1.173240
+```
+
+#### Figure 3
+
+(more to come)
+
+#### Figure 4
+
+(more to come)
+
+#### Figure 5
+
+(more to come)
+
+#### Figure 6A
+
+(more to come)
+
+#### Figure 6B
+
+(more to come)
+
+#### Table 1
+
+(more to come)
+
+#### Table S2
+
+(more to come)
+
+#### Table S3
+
 (more to come)
 
 ### Sequences
@@ -17,6 +63,10 @@ fruit. They have no connection in reality to the given fruit (e.g. they are
 
 Where sequences were drawn from E.coli, these were taken from Escherichia coli
 strain K-12 substrain MG1655, https://www.ncbi.nlm.nih.gov/nuccore/U00096.
+
+Sequence pairs are stored in tandem in the following files. That is, the first
+two sequences in the file are one pair, the next two sequences are the second
+pair, and so on.
 
 #### ecoli.K12.dupfree.K=16.L=10K.K=16.mutation_model.first_pair.fa.gz
 
