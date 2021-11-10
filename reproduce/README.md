@@ -19,7 +19,7 @@ reads sequenced from that fruit).
 
 Related sequence pairs generated from a randomly chosen segment of E.coli,
 under a mutation model. There is one pair for each mutation rate (.1%, .5%, 1%,
-5%, and 10%).
+5%, and 10%). The first sequence in each pair is the same.
 
 #### lemon.K=16.R=10%.fa.gz 
 
@@ -35,9 +35,8 @@ duplicate-free sequence. There are fifty pairs (each with no relation to the
 other pairs) for mutation rate 10%.
 
 #### plantain.K=7.first_pair.fa.gz
-plantain.K=8.first_pair.fa.gz
 
-Unrelated sequence pairs generated as random duplicate-free walks. There is
+Unrelated sequence pairs generated as duplicate-free random walks. There is
 one pair for each target Jaccard (10%, 20%, ... , 90%).
 
 #### hg38.chr20.L=1K.fa.gz
