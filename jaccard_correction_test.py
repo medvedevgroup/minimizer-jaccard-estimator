@@ -219,7 +219,7 @@ def main():
 
 	showAllReplicates = ("replicates" in debug)
 
-	header =  ["nameA","nameA"]
+	header =  ["nameA","nameB"]
 	if (numReplicates > 1):
 		if (showAllReplicates): header += ["rep","hash.seed"]
 		else:                   header += ["replicates"]
