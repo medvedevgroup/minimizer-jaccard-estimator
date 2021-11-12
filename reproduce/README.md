@@ -26,6 +26,26 @@ LEMON_L10015_K16_R10%_4_0  LEMON_L10015_K16_R10%_4_1  50         100 16 10015   
 LEMON_L10015_K16_R10%_5_0  LEMON_L10015_K16_R10%_5_1  50         100 16 10015     10000 1936   18064  0.107174 26.780   370.340  0.072444 1903     0.105156  25.606760 -0.036029   -0.034731       1.173240
 ```
 
+| name in header | name in manuscript                  |
+| -------------- | ----------------------------------- |
+| nameA          |                                     |
+| nameB          |                                     |
+| replicates     |                                     |
+| w              | w                                   |
+| k              | k                                   |
+| length.nt      | (L+k-1)                             |
+| |a|            | L                                   |
+| I(A,B)         | I(A,B)                              |
+| U(A,B)         | U(A,B)                              |
+| J(A,B)         | J(A,B)                              |
+| I(A,B;w)       | Ihat(A,B;w) or average(Ihat(A,B;w)) |
+| U(A,B;w)       | Uhat(A,B;w) or average(Uhat(A,B;w)) |
+| J(A,B;w)       | Jhat(A,B;w) or Jbar(A,B;w)          |
+| D(A,B;w)       | script D(A,B;w)                     |
+| Jd(A,B;w)      |                                     |
+| C(A,B;w)       | script C(A,B;w)                     |
+| Bias(A,B;w)    | script B(A,B;w)                     |
+
 #### Figure 3
 
 For the unrelated pairs:
