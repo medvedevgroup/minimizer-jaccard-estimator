@@ -18,7 +18,7 @@ from hash_functions      import set_up_hash_function, \
 from winnowed_minimizers import winnowed_minimizers_linear
 
 programName    = "jaccard_correction_test"
-programVersion = "0.3.0"
+programVersion = "0.4.0"
 
 
 def usage(s=None):
@@ -44,6 +44,8 @@ usage: cat <fasta_file_1> | %s [<fasta_file_2>] [options]
   --prng=<string>         set seed for PRNG; NOT to be confused with the hash
                           seed; this may include substrings "{date}" and
                           "{time}"
+  --report:configs        include configuration counts in the output; this
+                          greatly increases the number of output columns
   --inhibit:correction    don't compute any of the statistics related to the
                           jaccard correction
   --head=<number>         limit the number of input sequence pairs
@@ -84,6 +86,7 @@ def main():
 	hashType          = "minimap2"
 	hashSeed          = 0
 	prngSeed          = None
+	reportConfigs     = False
 	computeCorrection = True
 	headLimit         = None
 	reportProgress    = None
@@ -142,6 +145,8 @@ def main():
 				prngSeed = argVal
 				prngSeed = prngSeed.replace("{date}",strftime("%d/%m/%Y"))
 				prngSeed = prngSeed.replace("{time}",strftime("%I/%M/%S"))
+		elif (arg in ["--report:configs","--report:configurations"]):
+			reportConfigs = True
 		elif (arg in ["--inhibit:correction","--nocorrection"]):
 			computeCorrection = False
 		elif (arg in ["--noinhibit:correction","--correction"]):
@@ -229,6 +234,17 @@ def main():
 	header += ["I(A,B;w)","U(A,B;w)","J(A,B;w)"]
 	header += ["D(A,B;w)","Jd(A,B;w)","C(A,B;w)","Bias(A,B;w)"]
 	header += ["J(A,B;w)-J(A,B)","I(A,B;w)-C(A,B;w)"]
+	if (reportConfigs):
+		#viableConfigurations = []
+		#for (cal,car,cbl,cbr) in cartesian_product([0,1,2],[0,1,2],[0,1,2],[0,1,2]):
+		#	viableConfigurations += [(cal,car,cbl,cbr)]
+		viableConfigurations = [(0,0,0,0),(0,1,0,1),(0,1,0,2),(0,2,0,1),(0,2,0,2),
+                                (2,0,2,0),(2,1,2,1),(2,1,2,2),(2,2,2,1),(2,2,2,2),
+                                (2,1,1,1),(2,2,1,1),(1,1,2,1),(1,1,2,2),(1,0,1,0),
+                                (1,0,2,0),(2,0,1,0)]
+		for (cal,car,cbl,cbr) in viableConfigurations:
+			for s in range(windowSize+1):             # (min is 0, max is w)
+				header += ["N(%d,%d;%d,%d;%d)"%(cal,car,cbl,cbr,s)]
 
 	if ("checkduplicates" not in debug):
 		print("#%s" % "\t".join(header))
@@ -341,6 +357,16 @@ def main():
 					line += ["%.6f\t%.6f"   % (jaccardAvg-kd.jaccard,nIntersectionAvg-cd.scriptC)]
 				else:
 					line += ["%.6f\tNA"     % (jaccardAvg-kd.jaccard)]
+
+			if (reportConfigs):
+				for (cal,car,cbl,cbr) in viableConfigurations:
+					for s in range(windowSize+1):             # (min is 0, max is w)
+						if (s in cd.nConfigurations) and ((cal,car,cbl,cbr) in cd.nConfigurations[s]):
+							n = cd.nConfigurations[s][(cal,car,cbl,cbr)]
+						else:
+							n = 0
+						line += [str(n)]
+
 			print("\t".join(line))
 
 	if (fasta2F != None):
@@ -432,6 +458,10 @@ def jaccard_correction(nameA,hashA,nameB,hashB,windowSize):
 			scriptC += nConfigurations[s][(cal,car,cbl,1)] * g(w,s,s-1,1)
 		for (cal,cbl,cbr) in cartesian_product([0,1,2],[0,2],[0,1,2]):
 			scriptC += nConfigurations[s][(cal,1,cbl,cbr)] * g(w,s,s-1,1)
+		if ("0.3.0" not in debug):
+			# this term was left out of an earlier version of the manuscript,
+			# and this program
+			scriptC += nConfigurations[s][(0,1,0,1)] * g(w,s,2,1)
 		scriptC +=     nOmega[0] * g(w,s,1,1)
 		scriptC += 2 * nOmega[2] * g(w,s,1,2)
 
@@ -445,6 +475,8 @@ def jaccard_correction(nameA,hashA,nameB,hashB,windowSize):
 			parts += [(sum([nConfigurations[s][(cal,0,cbl,0)] for (cal,cbl) in cartesian_product([0,1,2],[0,1,2])]),g(w,s,s-1,0))]
 			parts += [(sum([nConfigurations[s][(cal,car,cbl,1)] for (cal,car,cbl) in cartesian_product([0,2],[0,1,2],[0,1,2])]),g(w,s,s-1,1))]
 			parts += [(sum([nConfigurations[s][(cal,1,cbl,cbr)] for (cal,cbl,cbr) in cartesian_product([0,1,2],[0,2],[0,1,2])]),g(w,s,s-1,1))]
+			if ("0.3.0" not in debug):
+				parts += [(nConfigurations[s][(0,1,0,1)],g(w,s,2,1))]
 			parts += [(  nOmega[0],g(w,s,1,1))]
 			parts += [(2*nOmega[2],g(w,s,1,2))]
 			dbgScriptC += [(s,deltaScriptC,parts)]
@@ -453,10 +485,11 @@ def jaccard_correction(nameA,hashA,nameB,hashB,windowSize):
 	# bias is manuscript's script B Bias(A,B;w)
 
 	cd = CorrectionData()
-	cd.scriptD      = scriptD
-	cd.jaccardFromD = jaccardFromD
-	cd.scriptC      = scriptC
-	cd.bias         = bias
+	cd.scriptD         = scriptD
+	cd.jaccardFromD    = jaccardFromD
+	cd.scriptC         = scriptC
+	cd.bias            = bias
+	cd.nConfigurations = nConfigurations
 	if ("C" in debug): cd.dbgScriptC = dbgScriptC
 	return cd
 
