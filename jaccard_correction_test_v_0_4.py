@@ -2,6 +2,9 @@
 """
 Compute the Jaccard correction for pairs of sequences, relating to winnowed
 minimizers.
+
+This is a snapshot of the program, with internal formulas relating to an
+earlier version of the associated manuscript.
 """
 
 from sys                 import argv,stdin,stdout,stderr,exit
@@ -18,7 +21,7 @@ from hash_functions      import set_up_hash_function, \
 from winnowed_minimizers import winnowed_minimizers_linear
 
 programName    = "jaccard_correction_test"
-programVersion = "0.5.0"
+programVersion = "0.4.0"
 
 
 def usage(s=None):
@@ -55,6 +58,9 @@ usage: cat <fasta_file_1> | %s [<fasta_file_2>] [options]
 
 Compute the Jaccard correction for pairs of sequences, relating to winnowed
 minimizers.
+
+NOTE: This is a snapshot of the program, with internal formulas relating to an
+      earlier version of the associated manuscript.
 
 If fasta_file_2 is provided, the first sequence in fasta_file_1 is compared to
 the first from fasta_file_2, the second is compared to the second, and so on.
@@ -319,7 +325,7 @@ def main():
 				# cd.bias    is manuscript's script B(A,B;w)
 
 				if ("C" in debug):
-					dbg_report_script_c(cd.scriptC,cd.dbgScriptC)
+					dbg_report_script_c(cd.dbgScriptC)
 
 			if (numReplicates > 1) and (not showAllReplicates):
 				if (replicateNum < numReplicates-1):
@@ -378,10 +384,7 @@ def main():
 
 class CorrectionData: pass
 
-tVal = None
-
 def jaccard_correction(nameA,hashA,nameB,hashB,windowSize):
-	global tVal
 
 	# make sure the hash sequences contain no duplicates; failure would be do
 	# either to having duplicate kmers in the nucleotide sequence, or using a
@@ -417,18 +420,6 @@ def jaccard_correction(nameA,hashA,nameB,hashB,windowSize):
 			      file=stderr)
 		raise
 
-	# precompute tVal
-	# tVal[(s,i)] is manusctipt's t_i, for a given value of s
-
-	if (tVal == None):
-		tVal = {}
-		for s in range(windowSize+1):                     # (min is 0, max is w)
-			tVal[(s,0)] = 1.0 / (2*windowSize-s)
-			tVal[(s,1)] = tVal[(s,0)] / (2*windowSize+1-s)
-			tVal[(s,2)] = tVal[(s,1)] / (2*windowSize+2-s)
-			if ("t" in debug):
-				dbg_report_t(s,tVal[(s,0)],tVal[(s,1)],tVal[(s,2)])
-
 	# compute configurations
 	# shared[(i,j)] is manuscript's S(i,j,w), but only when S(i,j,w)>0
 	# nConfigurations[s][(cal,car,cbl,cbr)] is manuscript's N[(cal,car;cbl,cbr;s)]
@@ -455,27 +446,46 @@ def jaccard_correction(nameA,hashA,nameB,hashB,windowSize):
 
 	scriptC = 0                                       # scriptC is manuscript's script C(A,B;w)
 	for s in range(windowSize+1):                     # (min is 0, max is w)
-		scriptCParts = [(tVal[(s,0)]                         , nConfigurations[s][(1,0,1,0)]),
-		                (tVal[(s,0)]                         , nConfigurations[s][(1,0,2,0)]),
-		                (tVal[(s,0)]                         , nConfigurations[s][(2,0,1,0)]),
-		                (tVal[(s,1)]                         , (nConfigurations[s][(2,1,1,1)]+nConfigurations[s][(2,2,1,1)])),
-		                (tVal[(s,1)]                         , (nConfigurations[s][(1,1,2,1)]+nConfigurations[s][(1,1,2,2)])),
-		                (2*w*tVal[(s,1)]                     , nConfigurations[s][(0,0,0,0)]),
-		                (tVal[(s,1)]*s                       , nConfigurations[s][(0,1,0,1)]),
-		                (tVal[(s,1)]*s                       , nConfigurations[s][(0,1,0,2)]),
-		                (tVal[(s,1)]*s                       , nConfigurations[s][(0,2,0,1)]),
-		                (tVal[(s,1)]*s                       , nConfigurations[s][(0,2,0,2)]),
-		                (2*tVal[(s,2)]*s                     , nConfigurations[s][(2,2,2,2)]),
-		                (4*tVal[(s,2)]*w                     , nConfigurations[s][(2,1,2,1)]),
-		                (tVal[(s,2)]*(s+2*w)                 , nConfigurations[s][(2,1,2,2)]),
-		                (tVal[(s,2)]*(s+2*w)                 , nConfigurations[s][(2,2,2,1)]),
-		                (tVal[(s,2)]*(6*w-s+(2*w-s)*(2*w-s)) , nConfigurations[s][(2,0,2,0)])]
-		scriptC += sum([t*n for (t,n) in scriptCParts])
+		nOmega = {}                                   # nOmega[t] is manuscript's N(omega_{t,s})
+		for t in [0,2]:                               # (note that N(omega_{1,s}) is not needed)
+			nOmega[t] = 0
+			for (car,cbr) in [(1,2),(2,1),(0,0)]:
+				nOmega[t] += nConfigurations[s][(t,car,t,cbr)]
+		if ("omega" in debug):
+			dbg_report_n_omega(nOmega,s)
+
+		g = g_func                                    # g_func(w,s,alpha,beta) is manuscript's g(s,alpha,beta)
+		scriptC +=     nConfigurations[s][(0,2,0,2)] * g(w,s,0,1)
+		scriptC += 2 * nConfigurations[s][(2,2,2,2)] * g(w,s,0,2)
+		scriptC += 2 * nConfigurations[s][(2,1,2,1)] * g(w,s,2,2)
+		for (cal,cbl) in cartesian_product([0,1,2],[0,1,2]):
+			scriptC += nConfigurations[s][(cal,0,cbl,0)] * g(w,s,s-1,0)
+		for (cal,car,cbl) in cartesian_product([0,2],[0,1,2],[0,1,2]):
+			scriptC += nConfigurations[s][(cal,car,cbl,1)] * g(w,s,s-1,1)
+		for (cal,cbl,cbr) in cartesian_product([0,1,2],[0,2],[0,1,2]):
+			scriptC += nConfigurations[s][(cal,1,cbl,cbr)] * g(w,s,s-1,1)
+		if ("0.3.0" not in debug):
+			# this term was left out of an earlier version of the manuscript,
+			# and this program
+			scriptC += nConfigurations[s][(0,1,0,1)] * g(w,s,2,1)
+		scriptC +=     nOmega[0] * g(w,s,1,1)
+		scriptC += 2 * nOmega[2] * g(w,s,1,2)
 
 		if ("C" in debug):
 			deltaScriptC = scriptC if (s==0) else (scriptC-prevScriptC)
 			prevScriptC = scriptC
-			dbgScriptC += [(s,deltaScriptC,scriptCParts)]
+			parts = []
+			parts += [(  nConfigurations[s][(0,2,0,2)],g(w,s,0,1))]
+			parts += [(2*nConfigurations[s][(2,2,2,2)],g(w,s,0,2))]
+			parts += [(2*nConfigurations[s][(2,1,2,1)],g(w,s,2,2))]
+			parts += [(sum([nConfigurations[s][(cal,0,cbl,0)] for (cal,cbl) in cartesian_product([0,1,2],[0,1,2])]),g(w,s,s-1,0))]
+			parts += [(sum([nConfigurations[s][(cal,car,cbl,1)] for (cal,car,cbl) in cartesian_product([0,2],[0,1,2],[0,1,2])]),g(w,s,s-1,1))]
+			parts += [(sum([nConfigurations[s][(cal,1,cbl,cbr)] for (cal,cbl,cbr) in cartesian_product([0,1,2],[0,2],[0,1,2])]),g(w,s,s-1,1))]
+			if ("0.3.0" not in debug):
+				parts += [(nConfigurations[s][(0,1,0,1)],g(w,s,2,1))]
+			parts += [(  nOmega[0],g(w,s,1,1))]
+			parts += [(2*nOmega[2],g(w,s,1,2))]
+			dbgScriptC += [(s,deltaScriptC,parts)]
 
 	bias = (scriptC/((float(4*L)/(w+1))-scriptC)) - (float(scriptD)/(2*L-scriptD))
 	# bias is manuscript's script B Bias(A,B;w)
@@ -657,6 +667,26 @@ def configuration_matrix(hashA,hashB,aPosToBPos,bPosToAPos,windowSize,i,j):
 	else:                                   cbr = 2
 
 	return (cal,car,cbl,cbr)
+
+
+# g_func--
+#	This is g(s,alpha,beta) from the manuscript.
+#
+# nota bene: We back this function with a cache. This implementation would
+#            probably be cleaner if it used the python memoization paradigm.
+
+g_func_hash = {}
+def g_func(w,s,alpha,beta,blindToCache=False):
+	cacheKey = (w,s,alpha,beta)
+	if (not blindToCache) and (cacheKey in g_func_hash):
+		return g_func_hash[cacheKey]
+
+	g = s - alpha
+	for i in range(0,beta+1):    # min is 0, max is beta
+		g /= 2*w-s+i
+
+	g_func_hash[cacheKey] = g
+	return g
 
 
 # hash_sequence--
@@ -910,17 +940,15 @@ def dbg_report_configurations(nConfigurations):
 			       nConfigurations[s][(cal,car,cbl,cbr)]),
 			      file=stderr)
 
-def dbg_report_t(s,t0,t1,t2):
-	print("t0(s=%d) = %.6f" % (s,t0),file=stderr)
-	print("t1(s=%d) = %.6f" % (s,t1),file=stderr)
-	print("t2(s=%d) = %.6f" % (s,t2),file=stderr)
+def dbg_report_n_omega(nOmega,s):
+	for t in [0,2]:
+		print("N(omega_{%d,%d} = %d" % (t,s,nOmega[t]),file=stderr)
 
-def dbg_report_script_c(scriptC,dbgScriptC):
-	print("scriptC = %0.6f" % scriptC,file=stderr)
+def dbg_report_script_c(dbgScriptC):
 	for (s,deltaScriptC,parts) in dbgScriptC:
-		prefix = "  =" if (s == 0) else "  +"
+		prefix = "scriptC =" if (s == 0) else "+"
 		partsStr = "" if (len(parts) == 0) \
-		           else (", %s" % ("+".join(["%0.6f*%s"%(t,n) for (t,n) in parts])))
+		           else (", %s" % ("+".join(["%s*%0.6f"%(part[0],part[1]) for part in parts])))
 		print("%s %0.6f (for s=%d%s)" % (prefix,deltaScriptC,s,partsStr),file=stderr)
 
 
