@@ -18,7 +18,7 @@ from hash_functions      import set_up_hash_function, \
 from winnowed_minimizers import winnowed_minimizers_linear
 
 programName    = "jaccard_correction_test"
-programVersion = "0.5.0"
+programVersion = "0.6.0"
 
 
 def usage(s=None):
@@ -33,9 +33,9 @@ usage: cat <fasta_file_1> | %s [<fasta_file_2>] [options]
   --canonical             consider reverse-complemented equivalent kmers to be
                           the same
                           (by default we consider such kmers as different)
-  --replicates=<N>        perform N replicates for each sequence pair, each
-                          using a different hash function; see note below on
-                          how hash functions are seeded
+  --replicates=<N>        perform N hash replicates for each sequence pair,
+                          each using a different hash function; see note below\
+                          on how hash functions are seeded
                           (default is 1 replicate)
   --hash=[<type>.]<seed>  type and seed for hash function; seed is an integer,
                           and "0x" prefix can be used to indicate hexadecimal;
@@ -44,6 +44,16 @@ usage: cat <fasta_file_1> | %s [<fasta_file_2>] [options]
   --prng=<string>         set seed for PRNG; NOT to be confused with the hash
                           seed; this may include substrings "{date}" and
                           "{time}"
+  --report:replicates     include a separate line for each hash replicate in
+                          the output
+                          (by default, we combine hash replicates for the same
+                          sequence pair into a single line, averaging some
+                          of the fields)
+                          greatly increases the number of output columns
+  --report:duplicates     include the count of duplicates in the output; this
+                          adds a column for the duplicates in sequence A and
+                          another for sequence B; this can only be used with
+                          --inhibit:correction
   --report:configs        include configuration counts in the output; this
                           greatly increases the number of output columns
   --inhibit:correction    don't compute any of the statistics related to the
@@ -86,7 +96,9 @@ def main():
 	hashType          = "minimap2"
 	hashSeed          = 0
 	prngSeed          = None
+	showAllReplicates = False
 	reportConfigs     = False
+	reportDuplicates  = False
 	computeCorrection = True
 	headLimit         = None
 	reportProgress    = None
@@ -145,6 +157,10 @@ def main():
 				prngSeed = argVal
 				prngSeed = prngSeed.replace("{date}",strftime("%d/%m/%Y"))
 				prngSeed = prngSeed.replace("{time}",strftime("%I/%M/%S"))
+		elif (arg in ["--report:replicates"]):
+			showAllReplicates = True
+		elif (arg in ["--report:duplicates","--report:dups","--report:dupes"]):
+			reportDuplicates = True
 		elif (arg in ["--report:configs","--report:configurations"]):
 			reportConfigs = True
 		elif (arg in ["--inhibit:correction","--nocorrection"]):
@@ -165,6 +181,12 @@ def main():
 			fasta2Name = arg
 		else:
 			usage("unrecognized option: %s" % arg)
+
+	if (reportDuplicates) and (computeCorrection):
+		usage("--report:duplicates requires --inhibit:correction")
+
+	if ("replicates" in debug):   # (for backward compatibility)
+		showAllReplicates = True
 
 	# set up the hash function(s) and winnower
 
@@ -211,6 +233,8 @@ def main():
 	# kmerSize                              k                   k
 	# len(seqA)                             length.nt           (L+k-1)
 	# len(hashA)                            |a|                 L
+	#                                       hashA.dups
+	#                                       hashB.dups
 	# kd.nIntersection                      I(A,B)              I(A,B)
 	# kd.nUnion                             U(A,B)              U(A,B) 
 	# kd.jaccard                            J(A,B)              J(A,B)
@@ -222,13 +246,12 @@ def main():
 	# cd.scriptC                            C(A,B;w)            script C(A,B;w)
 	# cd.bias                               Bias(A,B;w)         script B(A,B;w)
 
-	showAllReplicates = ("replicates" in debug)
-
 	header =  ["nameA","nameB"]
 	if (numReplicates > 1):
 		if (showAllReplicates): header += ["rep","hash.seed"]
 		else:                   header += ["replicates"]
 	header += ["w","k","length.nt","|a|"]
+	if (reportDuplicates): header += ["hashA.dups","hashB.dups"]
 	header += ["I(A,B)","U(A,B)","J(A,B)"]
 	if ("density" in debug): header += ["2L/(w+1)","|A.min(w)|","|B.min(w)|"]
 	header += ["I(A,B;w)","U(A,B;w)","J(A,B;w)"]
@@ -284,6 +307,10 @@ def main():
 
 			hashA = hash_sequence(seqA,kmerSize,hashFunc,canonical=canonical)
 			hashB = hash_sequence(seqB,kmerSize,hashFunc,canonical=canonical)
+			if (reportDuplicates):
+				numDupsA = count_duplicates(hashA)
+				numDupsB = count_duplicates(hashB)
+
 			md = jaccard_by_minimizers(hashA,hashB,windowSize,winnower)
 			# md.nIntersection is manuscript's I(A,B;w)
 			# md.nUnion        is manuscript's U(A,B;w)
@@ -336,6 +363,8 @@ def main():
 				if (showAllReplicates): line += ["%d\t0x%016X" % (1+replicateNum,hashSeed)]
 				else:                   line += ["%d"          % numReplicates]
 			line += ["%d\t%d\t%d\t%d"       % (windowSize,kmerSize,len(seqA),len(hashA))]
+			if (reportDuplicates):
+				line += ["%d\t%d"           % (numDupsA,numDupsB)]
 			line += ["%d\t%d\t%.6f"         % (kd.nIntersection,kd.nUnion,kd.jaccard)]
 			if ("density" in debug):
 				line += ["%.3f\t%d\t%d"     % (2*len(hashA)/(windowSize+1),md.nMinimizersA,md.nMinimizersB)]
@@ -716,6 +745,23 @@ def shared_hash_positions(hashA,hashB,duplicates=None):
 		raise ValueError
 
 	return aPosToBPos
+
+
+# count_duplicates--
+#	Count the number of duplications in a hash sequence. This is the number of
+#	positions in the sequence that match a hash value at a lower position. So,
+#	for example, any hash value that appears exactly N times will contribute
+#	N-1 to the count.
+
+def count_duplicates(hashA):
+	hSeen = set()
+	dupCount = 0
+	for hA in hashA:
+		if (hA in hSeen):
+			dupCount += 1
+		else:
+			hSeen.add(hA)
+	return dupCount
 
 
 # jaccard_by_kmers--
