@@ -18,7 +18,7 @@ from hash_functions      import set_up_hash_function, \
 from winnowed_minimizers import winnowed_minimizers_linear
 
 programName    = "jaccard_correction_test"
-programVersion = "0.6.0"
+programVersion = "0.6.1"
 
 
 def usage(s=None):
@@ -34,7 +34,7 @@ usage: cat <fasta_file_1> | %s [<fasta_file_2>] [options]
                           the same
                           (by default we consider such kmers as different)
   --replicates=<N>        perform N hash replicates for each sequence pair,
-                          each using a different hash function; see note below\
+                          each using a different hash function; see note below
                           on how hash functions are seeded
                           (default is 1 replicate)
   --hash=[<type>.]<seed>  type and seed for hash function; seed is an integer,
@@ -58,6 +58,8 @@ usage: cat <fasta_file_1> | %s [<fasta_file_2>] [options]
                           greatly increases the number of output columns
   --inhibit:correction    don't compute any of the statistics related to the
                           jaccard correction
+  --inhibit:lengthcheck   don't enforce the requirement that sequences must
+                          have the same length (i.e., allow different lengths)
   --head=<number>         limit the number of input sequence pairs
   --progress=<number>     periodically report how many sequence pairs we've
                           processed
@@ -100,6 +102,7 @@ def main():
 	reportConfigs     = False
 	reportDuplicates  = False
 	computeCorrection = True
+	requireSameLength = True
 	headLimit         = None
 	reportProgress    = None
 	debug             = []
@@ -167,6 +170,8 @@ def main():
 			computeCorrection = False
 		elif (arg in ["--noinhibit:correction","--correction"]):
 			computeCorrection = True
+		elif (arg in ["--inhibit:lengthcheck","--nolengthcheck"]):
+			requireSameLength = False
 		elif (arg.startswith("--head=")):
 			headLimit = int_with_unit(argVal)
 		elif (arg.startswith("--progress=")):
@@ -184,6 +189,8 @@ def main():
 
 	if (reportDuplicates) and (computeCorrection):
 		usage("--report:duplicates requires --inhibit:correction")
+	if (not requireSameLength) and (computeCorrection):
+		usage("--inhibit:lengthcheck requires --inhibit:correction")
 
 	if ("replicates" in debug):   # (for backward compatibility)
 		showAllReplicates = True
@@ -250,7 +257,9 @@ def main():
 	if (numReplicates > 1):
 		if (showAllReplicates): header += ["rep","hash.seed"]
 		else:                   header += ["replicates"]
-	header += ["w","k","length.nt","|a|"]
+	header += ["w","k"]
+	if (requireSameLength): header += ["length.nt","|a|"]
+	else:                   header += ["lengthA.nt","lengthB.nt","|a|","|b|"]
 	if (reportDuplicates): header += ["hashA.dups","hashB.dups"]
 	header += ["I(A,B)","U(A,B)","J(A,B)"]
 	if ("density" in debug): header += ["2L/(w+1)","|A.min(w)|","|B.min(w)|"]
@@ -285,9 +294,10 @@ def main():
 			else:
 				print("processing pair #%d: %s vs %s" % (pairNumber,nameA,nameB),file=stderr)
 
-		assert (len(seqA) == len(seqB)), \
-		       "%s and %s have different lengths (%d and %d)" \
-		     % (nameA,nameB,len(seqA),len(seqB))
+		if (requireSameLength):
+			assert (len(seqA) == len(seqB)), \
+			       "%s and %s have different lengths (%d and %d)" \
+			     % (nameA,nameB,len(seqA),len(seqB))
 
 		kd = jaccard_by_kmers(seqA,seqB,kmerSize,canonical=canonical)
 		# kd.nIntersection is manuscript's Sp^k(A) intersect Sp^k(B)
@@ -362,7 +372,11 @@ def main():
 			if (numReplicates > 1):
 				if (showAllReplicates): line += ["%d\t0x%016X" % (1+replicateNum,hashSeed)]
 				else:                   line += ["%d"          % numReplicates]
-			line += ["%d\t%d\t%d\t%d"       % (windowSize,kmerSize,len(seqA),len(hashA))]
+			line += ["%d\t%d"               % (windowSize,kmerSize)]
+			if (requireSameLength):
+				line += ["%d\t%d"           % (len(seqA),len(hashA))]
+			else:
+				line += ["%d\t%d\t%d\t%d"   % (len(seqA),len(seqB),len(hashA),len(hashB))]
 			if (reportDuplicates):
 				line += ["%d\t%d"           % (numDupsA,numDupsB)]
 			line += ["%d\t%d\t%.6f"         % (kd.nIntersection,kd.nUnion,kd.jaccard)]
