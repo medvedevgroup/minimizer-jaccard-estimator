@@ -46,7 +46,7 @@ LEMON_L10015_K16_R10%_5_0  LEMON_L10015_K16_R10%_5_1  50         100 16 10015   
 | C(A,B;w)       | script C(A,B;w)                     |
 | Bias(A,B;w)    | script B(A,B;w)                     |
 
-#### Figure 3
+#### Figure 4
 
 For the unrelated pairs:
 
@@ -63,6 +63,14 @@ gzip -dc plantain.K=8.first_pair.fa.gz \
 For the related pairs:
 
 ```bash 
+gzip -dc ecoli.K12.K=16.L=10K.K=16.mutation_model.one_pair.fa.gz \
+  | jaccard_correction_test.py K=16 W=20 --report:replicates --replicates=50 --prng=20210908A \
+  > ecoli.K12.K=16.L=10K.K=16.mutation_model.one_pair.W=20.dat
+
+gzip -dc ecoli.K12.K=16.L=10K.K=16.mutation_model.one_pair.fa.gz \
+  | jaccard_correction_test.py K=16 W=200 --report:replicates --replicates=50 --prng=20210908A \
+  > ecoli.K12.K=16.L=10K.K=16.mutation_model.one_pair.W=200.dat
+
 gzip -dc ecoli.K12.dupfree.K=16.L=10K.K=16.mutation_model.first_pair.fa.gz \
   | jaccard_correction_test.py K=16 W=20 --replicates=50 --prng=20210908A \
   > ecoli.K12.dupfree.K=16.L=10K.K=16.mutation_model.first_pair.W=20.dat
@@ -72,7 +80,7 @@ gzip -dc ecoli.K12.dupfree.K=16.L=10K.K=16.mutation_model.first_pair.fa.gz \
   > ecoli.K12.dupfree.K=16.L=10K.K=16.mutation_model.first_pair.W=200.dat
 ```
 
-#### Figure 4
+#### Figure 6
 
 ```bash 
 cat hg38.chr20.fa \
@@ -80,7 +88,7 @@ cat hg38.chr20.fa \
   > hg38.chr20.L=1K.K=16.W=200.local.dat.gz
 ```
 
-#### Figure 5, Figure 6B
+#### Figure 5, Figure 7B
 
 ```bash 
 declare -a windowSizes=("20" "100" "200" "300" "400" "500" "600" "700" "800" "900" "1000")
@@ -92,7 +100,7 @@ for W in "${windowSizes[@]}" ; do
   done
 ```
 
-#### Figure 6A
+#### Figure 7A
 
 ```bash 
 gzip -dc lemon.K=16.R=10%.fa.gz \
@@ -203,11 +211,18 @@ Sequence pairs are stored in tandem in the following files. That is, the first
 two sequences in the file are one pair, the next two sequences are the second
 pair, and so on.
 
-#### ecoli.K12.dupfree.K=16.L=10K.K=16.mutation_model.first_pair.fa.gz
+#### ecoli.K12.K=16.L=10K.K=16.mutation_model.one_pair.fa.gz
 
 Related sequence pairs generated from a randomly chosen segment of E.coli,
 under a Poisson mutation model. There is one pair for each mutation rate (.1%,
 .5%, 1%, 5%, and 10%). The first sequence in each pair is the same.
+
+#### ecoli.K12.dupfree.K=16.L=10K.K=16.mutation_model.first_pair.fa.gz
+
+Related sequence pairs generated from a randomly chosen segment of E.coli,
+under a Poisson mutation model. The selection process was restricted to
+segments containing no duplicate kmers. There is one pair for each mutation
+rate (.1%, .5%, 1%, 5%, and 10%). The first sequence in each pair is the same.
 
 #### tangerine.ecoli.K12.L=10K.R=\*.mutation_model.fa.gz
 
