@@ -10,7 +10,7 @@ from hash_functions      import set_up_hash_function, \
 from winnowed_minimizers import winnowed_minimizers_linear
 
 programName    = "sliding_jaccard"
-programVersion = "0.5.0"
+programVersion = "0.5.1"
 
 
 def usage(s=None):
@@ -165,7 +165,11 @@ def main():
 			usage("unrecognized option: %s" % arg)
 
 	if (queryFilename == None):
-			usage("you must provide a query filename")
+		usage("you must provide a query filename")
+
+	reportSpecifics = ("specifics" in debug)
+	if (reportSpecifics) and (globalMinimizers):
+		exit ("--debug=specifics is only implemented for --minimizers:local")
 
 	# set up the hash function and winnower
 
@@ -218,17 +222,24 @@ def main():
 			else:
 				print("query profile %016Xx%d" % (h,queryMiniProfile[h]),file=stderr)
 
+	if (reportSpecifics):
+		queryMiniPositionToHash = {}
+		for (miniH,ix) in winnower(hashQ,windowSize):
+			queryMiniPositionToHash[ix] = miniH
+
 	if ("bufferlength" in debug):
 		print("queryLen=%d bufferLen=%d" % (queryLen,bufferLen),file=stderr)
 
 	# process the reference sequences
 
 	if (reportSlidingDetails):
-		print("#qName\tqLen" \
-		    + "\trName\trStart\trEnd" \
-		    + "\tw\tk" \
-		    + "\tI(Q,R)\tU(Q,R)\tJ(Q,R)" \
-		    + "\tI(Q,R;w)\tU(Q,R;w)\tJ(Q,R;w)")
+		line = "#qName\tqLen" \
+		     + "\trName\trStart\trEnd" \
+		     + "\tw\tk" \
+		     + "\tI(Q,R)\tU(Q,R)\tJ(Q,R)" \
+		     + "\tI(Q,R;w)\tU(Q,R;w)\tJ(Q,R;w)"
+		if (reportSpecifics): line += "\tminimizerLocations"
+		print(line)
 
 	seqNumber = 0
 	for (name,seq) in fasta_sequences(stdin):
@@ -314,6 +325,8 @@ def main():
 		for kmer in kmerize(seq,kmerSize,canonical=canonical):
 			kmerBuffer += [kmer]
 			kmerPos += 1
+			refStart = kmerPos+1 - bufferLen
+			refEnd   = kmerPos + kmerSize
 
 			if (reportScanProgress != None) \
 			    and ((kmerPos == 1) or (kmerPos % reportScanProgress == 0)):
@@ -388,12 +401,14 @@ def main():
 					    % (name,windowStart,windowStart+bufferLen),
 					      file=stderr)
 				miniProfile.reset()
+				miniPositionToHash = {}   # only used if reportSpecifics
 				for (miniH,seqIx) in winnower(hashR[windowStart:windowStart+bufferLen],windowSize):
 					if ("minis" in debug):
-						print("ref[%d:%d] mini %016X %d" \
-						    % (windowStart,windowStart+bufferLen,miniH,windowStart+seqIx),
+						print("ref[%d:%d] @%d mini %016X %d" \
+						    % (windowStart,windowStart+bufferLen,seqIx,miniH,windowStart+seqIx),
 						       file=stderr)
 					miniProfile.add(miniH)
+					miniPositionToHash[seqIx] = miniH
 
 			# if the buffer is over-full, dis-incorporate the oldest kmer
 			
@@ -405,22 +420,49 @@ def main():
 			kmerJaccard = kmerProfile.jaccard()
 			miniJaccard = miniProfile.jaccard()
 
+			specifics = None
+			if (reportSpecifics):
+				# build a string that shows the positions of all minimizers
+				#  Q => minimizer in query (and also in reference sliding window)
+				#  q => minimizer in query (but not in reference sliding window)
+				#  S => minimizer in reference sliding window (and also in query)
+				#  s => minimizer in reference sliding window (but not in query)
+				#  * => minimizer at this position in both query and reference sliding window
+				#  | => separator dividing off windowLength-1 positions at each end
+				specifics = ["-"] * bufferLen
+				for seqIx in queryMiniPositionToHash:
+					h = queryMiniPositionToHash[seqIx]
+					if (h in miniProfile):
+						specifics[seqIx] = "Q"
+					else:
+						specifics[seqIx] = "q"
+				for seqIx in miniPositionToHash:
+					h = miniPositionToHash[seqIx]
+					if (specifics[seqIx] != "-"):
+						specifics[seqIx] = "*"
+					elif (h in queryMiniProfile):
+						specifics[seqIx] = "S"
+					else:
+						specifics[seqIx] = "s"
+				specifics = "".join(specifics[:(windowSize-1)]) \
+				          + "|" + "".join(specifics[(windowSize-1):-(windowSize-1)]) \
+				          + "|" + "".join(specifics[-(windowSize-1):])
+
 			if (reportSlidingDetails):
-				print(("%s\t%d"
-				     + "\t%s\t%d\t%d"
-				     + "\t%d\t%d"
-				     + "\t%d\t%d\t%.6f"
-				     + "\t%d\t%d\t%.6f") \
-				    % (queryName,queryLen,
-				       name,kmerPos+1-bufferLen,kmerPos+kmerSize,
-				       windowSize,kmerSize,
-				       kmerProfile.nI,kmerProfile.nU,kmerJaccard,
-				       miniProfile.nI,miniProfile.nU,miniJaccard))
+				line = ("%s\t%d"
+				      + "\t%s\t%d\t%d"
+				      + "\t%d\t%d"
+				      + "\t%d\t%d\t%.6f"
+				      + "\t%d\t%d\t%.6f") \
+				     % (queryName,queryLen,
+				        name,refStart,refEnd,
+				        windowSize,kmerSize,
+				        kmerProfile.nI,kmerProfile.nU,kmerJaccard,
+				        miniProfile.nI,miniProfile.nU,miniJaccard)
+				if (specifics != None): line += "\t" + specifics
+				print(line)
 
 			if (reportDistribution != None):
-				kmerJaccard = kmerProfile.jaccard()
-				miniJaccard = miniProfile.jaccard()
-
 				bucket = value_to_bucket(kmerJaccard,trueJaccardBucketSize)
 				if (bucket not in trueJaccardToCount): trueJaccardToCount[bucket] =  1
 				else:                                  trueJaccardToCount[bucket] += 1
@@ -490,6 +532,13 @@ class SlidingProfile(object):
 			if (self.rollingProfile[item] == 0): self.nU -= 1
 		else: # if (item in self.staticProfile):
 			if (self.rollingProfile[item] == 0): self.nI -= 1
+
+	def __contains__(self,item):
+		return (item in self.rollingProfile) and (self.rollingProfile[item] > 0)
+
+	def __getitem__(self,item):
+		if (item in self.rollingProfile): return self.rollingProfile[item]
+		else:                             return 0
 
 	def jaccard(self):
 		return 0.0 if (self.nU == None) \
